@@ -59,7 +59,7 @@ This guide walks you through deploying a Ruby web application with PostgreSQL da
 1. **Create DB Service**
    - Navigate to your cluster
    - Click **Create Service**
-   ![Service Step 1](images/cluster1.png)
+   ![Service Step 1](images/Cluster1.png)
    - Select the DB task definition created earlier
    - Choose **Fargate** as launch type
    - Configure networking (VPC, subnets, security groups)
