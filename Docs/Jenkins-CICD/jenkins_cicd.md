@@ -286,6 +286,5 @@ web:
 
 ### Common Issues:
 1. **Webhook not triggering**: Check ngrok URL and GitHub webhook configuration
-2. **ECR login failures**: Verify AWS credentials and permissions
+2. **ECR login failures**: Verify your AWS credentials and permissions. Also, make sure to update the AWS secret access key and session token frequently ideally every hour since they change dynamically after one hour.
 3. **Docker build failures**: Check Dockerfile.app and build context
-4. **Health check failures**: Verify application starts correctly and responds on port 3000
