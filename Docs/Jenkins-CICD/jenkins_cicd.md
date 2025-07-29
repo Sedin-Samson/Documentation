@@ -7,12 +7,8 @@ This guide explains how to set up a complete CI/CD pipeline using Jenkins, Docke
 
 ### 1. Repository Setup
 ```bash
-# Create a new repository on GitHub
-# Clone the repository locally
 git clone https://github.com/Sedin-Samson/Buggy-App.git
 cd Buggy-App
-
-# Add your application code and Dockerfile.app
 git add .
 git commit -m "Initial commit with application code"
 git push origin master
@@ -20,7 +16,7 @@ git push origin master
 
 ### 2. Local Jenkins Setup
 ```bash
-# Install Jenkins locally (example for Ubuntu)
+# Install Jenkins locally
 sudo apt update
 sudo apt install openjdk-11-jdk
 wget -q -O - https://pkg.jenkins.io/debian/jenkins.io.key | sudo apt-key add -
@@ -40,8 +36,6 @@ Since webhooks require HTTPS and we're running Jenkins locally, we use ngrok as 
 
 ```bash
 # Install ngrok
-curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
 sudo apt update && sudo apt install ngrok
 
 # Login to ngrok (get your token from https://dashboard.ngrok.com/get-started/your-authtoken)
@@ -50,6 +44,8 @@ ngrok config add-authtoken YOUR_NGROK_TOKEN
 # Expose Jenkins on port 8080 via HTTPS
 ngrok http 8080
 ```
+
+![Ngrok](images/ngrok.png)
 
 This will provide you with a public HTTPS URL like `https://abc123.ngrok.io` that forwards to your local Jenkins.
 
@@ -61,6 +57,7 @@ This will provide you with a public HTTPS URL like `https://abc123.ngrok.io` tha
 5. Select "Just the push event"
 6. Ensure "Active" is checked
 7. Click "Add webhook"
+![Task Definition DB Step 1](images/Github-Webhook.png)
 
 ## Jenkins Pipeline Configuration
 
@@ -80,6 +77,7 @@ In Jenkins, go to "Manage Jenkins" → "Manage Credentials" → "Global" and add
 - `RAILS_ENV`: Rails environment (production)
 - `SECRET_KEY_BASE`: Rails secret key base
 
+![jenkins Credentials](images/Jenkins-Credentials.png)
 ### Jenkinsfile Explanation
 
 #### Pipeline Structure
@@ -92,6 +90,8 @@ pipeline {
 ```
 - **agent any**: Pipeline can run on any available Jenkins agent
 - **IMAGE_TAG**: Creates a unique image tag using the Jenkins build number
+
+![Jenkins Stages](images/Jenkins-Stages.png)
 
 #### Stage 1: Checkout Code
 ```groovy
@@ -244,6 +244,9 @@ stage('Restart Docker Compose Services') {
 - `--build` ensures any local changes are incorporated
 - `-d` runs containers in detached mode
 
+▶️ [Watch CI-CD Jenkins Demo](images/CI-CD-Jenkins.mp4)
+
+
 ## Docker Compose Configuration
 
 ### Web Service Configuration
@@ -269,11 +272,6 @@ web:
 - **ports**: Maps container port 3000 to host port 3000
 - **depends_on**: Ensures database is healthy before starting web service
 - **env_file**: Loads environment variables from `.env.web.production`
-- **healthcheck**: 
-  - Tests application health every 10 seconds
-  - Uses curl to check if the app responds on port 3000
-  - Retries 5 times if health check fails
-  - Timeout of 5 seconds per check
 
 ## Complete Workflow
 
@@ -289,17 +287,9 @@ web:
 
 ## Security Considerations
 
-- All sensitive data (passwords, keys) stored as Jenkins credentials
+- All sensitive data such as passwords and access keys are currently stored as Jenkins credentials. As of now, we only have roles set up we have not created any individual users or user credentials
 - ECR provides secure container image storage
 - Environment files are generated dynamically and not stored in version control
-- Ngrok provides secure HTTPS tunnel for local development
-
-## Monitoring and Maintenance
-
-- Jenkins build logs provide deployment history
-- Docker Compose health checks monitor application status
-- ECR provides image vulnerability scanning
-- Consider implementing proper logging and monitoring solutions for production
 
 ## Troubleshooting
 
@@ -308,18 +298,3 @@ web:
 2. **ECR login failures**: Verify AWS credentials and permissions
 3. **Docker build failures**: Check Dockerfile.app and build context
 4. **Health check failures**: Verify application starts correctly and responds on port 3000
-
-### Useful Commands:
-```bash
-# Check ngrok status
-curl http://127.0.0.1:4040/api/tunnels
-
-# View Docker Compose logs
-docker compose logs -f
-
-# Check container health
-docker compose ps
-
-# Restart specific service
-docker compose restart web
-```
