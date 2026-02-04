@@ -118,7 +118,7 @@ stage('Set ECR Image') {
                 echo "ECR Image set"
             }
         }
-    }
+    }   
 }
 ```
 **Purpose**: Constructs the full ECR repository URL
