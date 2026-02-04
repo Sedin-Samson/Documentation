@@ -58,7 +58,7 @@ Restricts access to Indian traffic only.
 
 **Purpose:**  
 Allows access only from explicitly trusted IP addresses.
-![IP Set](images/ip-set.png)
+![IP Set](images/ip-set-1.png)
 
 ![Allow Only IP Set](images/ip-set-rule.png)
 ---
