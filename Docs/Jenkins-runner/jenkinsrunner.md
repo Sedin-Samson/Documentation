@@ -204,7 +204,211 @@ aws ec2 wait instance-terminated
 
 ---
 
-## 9. Security Model
+# 9. Cross-Account IAM Setup
+
+### Overview
+
+This setup involves **two AWS accounts**:
+- **Master Account** - Where Jenkins Controller runs
+- **Target Account** - Where ephemeral EC2 agents are created
+
+### 9.1 Target Account Setup
+
+#### Step 1: Create IAM Role in Target Account
+
+**Role Name:** `Jenkins-CICD-Role`
+
+**Trust Policy:** (Allow Master Account to assume this role)
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::111111111111:role/Jenkins-Master-Role"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "sts:ExternalId": "jenkins-cicd-external-id"
+        }
+      }
+    }
+  ]
+}
+```
+
+**Permissions Policy:** (Attached to Jenkins-CICD-Role)
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EC2ManagementPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances",
+        "ec2:TerminateInstances",
+        "ec2:DescribeInstances",
+        "ec2:DescribeInstanceStatus",
+        "ec2:CreateTags"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IAMPassRole",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::222222222222:instance-profile/EC2-Session-Role"
+    }
+  ]
+}
+```
+
+#### Step 2: Create EC2 Instance Profile in Target Account
+
+**Instance Profile Name:** `EC2-Session-Role`
+
+**Purpose:** Attached to ephemeral EC2 agents for AWS API access
+
+**Permissions Policy:**
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "s3:GetObject",
+        "s3:PutObject",
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+---
+
+### 9.2 Master Account Setup
+
+#### Step 1: Create IAM Policy in Master Account
+
+**Policy Name:** `Jenkins-AssumeRole-Policy`
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": [
+        "arn:aws:iam::222222222222:role/Jenkins-CICD-Role"
+      ]
+    }
+  ]
+}
+```
+
+#### Step 2: Create IAM Role in Master Account
+
+**Role Name:** `Jenkins-Master-Role`
+
+**Trust Policy:** (Allow EC2 service to assume this role)
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+**Attached Policies:**
+- `Jenkins-AssumeRole-Policy` (created above)
+
+#### Step 3: Attach Role to Jenkins EC2 Instance
+
+1. Create an **Instance Profile** from `Jenkins-Master-Role`
+2. Attach the instance profile to the Jenkins Controller EC2 instance
+3. No static AWS credentials needed on Jenkins!
+
+---
+
+### 9.3 Cross-Account Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Master Account (111111111111)                                   │
+│                                                                 │
+│  ┌──────────────────────────────────────────┐                  │
+│  │ Jenkins EC2 Instance                      │                  │
+│  │                                           │                  │
+│  │ Attached IAM Role:                        │                  │
+│  │ Jenkins-Master-Role                       │                  │
+│  │   ↓                                       │                  │
+│  │ Policy: Jenkins-AssumeRole-Policy         │                  │
+│  │   ↓                                       │                  │
+│  │ Action: sts:AssumeRole                    │                  │
+│  └──────────────────────────────────────────┘                  │
+│                        │                                         │
+└────────────────────────┼─────────────────────────────────────────┘
+                         │
+                         │ (Assume Role)
+                         ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ Target Account (222222222222)                                   │
+│                                                                 │
+│  ┌──────────────────────────────────────────┐                  │
+│  │ Jenkins-CICD-Role                         │                  │
+│  │                                           │                  │
+│  │ Trust Policy:                             │                  │
+│  │   - Trusts Jenkins-Master-Role            │                  │
+│  │                                           │                  │
+│  │ Permissions:                              │                  │
+│  │   - ec2:RunInstances                      │                  │
+│  │   - ec2:TerminateInstances                │                  │
+│  │   - iam:PassRole                          │                  │
+│  └──────────────────────────────────────────┘                  │
+│                        │                                         │
+│                        ↓                                         │
+│  ┌──────────────────────────────────────────┐                  │
+│  │ Ephemeral EC2 Agent                       │                  │
+│  │                                           │                  │
+│  │ Attached IAM Instance Profile:            │                  │
+│  │ EC2-Session-Role                          │                  │
+│  │   ↓                                       │                  │
+│  │ Permissions:                              │                  │
+│  │   - ECR access                            │                  │
+│  │   - S3 access                             │                  │
+│  │   - CloudWatch Logs                       │                  │
+│  └──────────────────────────────────────────┘                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+
+---
+
+## 10. Security Model
 
 ### IAM Design
 
@@ -216,7 +420,7 @@ aws ec2 wait instance-terminated
 
 ---
 
-## 10. Cost Optimization Benefits
+## 11. Cost Optimization Benefits
 
 | Traditional Agent | Ephemeral Agent |
 |------------------|-----------------|
@@ -227,7 +431,7 @@ aws ec2 wait instance-terminated
 
 ---
 
-## 11. Future Enhancements
+## 12. Future Enhancements
 
 - Auto-tag EC2 with JobName, BuildNumber
 - Spot instances for cost reduction
