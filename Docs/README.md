@@ -143,20 +143,22 @@ docker compose up -d postgresql mysql clickhouse mssql redis
    ```
 
 #### 3. Run Zapstro Frontend Container
-The Zapstro frontend runs inside a Docker container (not via local npm/pnpm). To spin up the frontend along with the databases:
+The Zapstro frontend runs inside a Docker container using the configuration in the `zapstro` directory.
 
-1. In the root directory, start the databases and the Zapstro container:
+1. Start the databases in the root directory:
    ```bash
-   docker compose up -d postgresql mysql clickhouse mssql redis zapstro
+   docker compose up -d postgresql mysql clickhouse mssql redis
    ```
-   *(Note: The container will automatically run database migrations on startup).*
 
-2. Create the admin user:
-   - Navigate to the `zapstro` directory:
-     ```bash
-     cd zapstro
-     ```
-   - Install the required packages for the script on your host machine:
+2. Navigate into the `zapstro` directory and start the frontend container:
+   ```bash
+   cd zapstro
+   docker compose up -d --build
+   ```
+   *(Note: The container uses `zapstro/docker-compose.yaml` and will automatically run database migrations on startup).*
+
+3. Create the admin user:
+   - In the `zapstro` directory, install the required packages for the script on your host machine:
      ```bash
      pip install -r scripts/requirements.txt
      ```
@@ -165,7 +167,7 @@ The Zapstro frontend runs inside a Docker container (not via local npm/pnpm). To
      python3 scripts/create-dk-admin.py
      ```
 
-3. Visit the dashboard at [http://localhost:3001](http://localhost:3001).
+4. Visit the dashboard at [http://localhost:3001](http://localhost:3001).
 
 ---
 
